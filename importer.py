@@ -128,8 +128,8 @@ class Library():
     return locals()
 
   # @staticmethod
-  def get_paths(self):
-    work_folder = "/content/drive/MyDrive/ColabShared"
+  def get_paths(self, work_folder):
+    # work_folder = "/content/drive/MyDrive/ColabShared"
     library_folder = os.path.join(work_folder, "Library")
 
     work_folder = "/content/drive/MyDrive/ColabShared"
