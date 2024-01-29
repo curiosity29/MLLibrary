@@ -11,12 +11,8 @@
 """
 
 import subprocess, sys, os, glob, importlib
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'rasterio'])
 # sys.path.append("../")
 
-
-import subprocess, sys, os, glob
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'rasterio'])
 
 
 def findFolder(rootFolder, *names, sub_folder = False):
@@ -130,9 +126,6 @@ class Library():
   # @staticmethod
   def get_paths(self, work_folder):
     # work_folder = "/content/drive/MyDrive/ColabShared"
-    library_folder = os.path.join(work_folder, "Library")
-
-    work_folder = "/content/drive/MyDrive/ColabShared"
     library_folder = os.path.join(work_folder, "Library")
 
     util_folder, model_folder =\
