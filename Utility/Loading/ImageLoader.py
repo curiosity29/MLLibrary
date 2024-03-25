@@ -21,7 +21,7 @@ def load_segment(pathTif, pathShape, pathBox = None, class_attribute = "class", 
 
   ## rasterio-1.3.9
   image = rs.open(pathTif)
-  gdf = gd.read_file(pathShape)#.drop(labels = "id", axis = 1)
+  gdf = gd.read_file(pathShape)[[class_attribute, "geometry"]].dropna()#.drop(labels = "id", axis = 1)
   if class_attribute is None:
     label = list(gdf["geometry"])
   else:
@@ -68,7 +68,7 @@ def load_segment(pathTif, pathShape, pathBox = None, class_attribute = "class", 
 def check_load_segment(pathTif, pathShape, pathBox = None, class_attribute = "class"):
 
   image = rs.open(pathTif)
-  gdf = gd.read_file(pathShape)#.drop(labels = "id", axis = 1)
+  gdf = gd.read_file(pathShape)[[class_attribute, "geometry"]].dropna()#.drop(labels = "id", axis = 1)
   gdf.to_crs(crs = image.crs, inplace = True)
   if pathBox is None:
     return image, gdf

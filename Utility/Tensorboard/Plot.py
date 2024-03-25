@@ -69,7 +69,7 @@ def log_predict(epoch, logs, logdir, model, batch_test, freq = 1, **ignore):
     tf.summary.image("predict", plot_to_image(figure), step=epoch)
   
 
-def log_confusion_matrix(epoch, logs, logdir, model, batch_test, class_names = None, freq = 5):
+def log_confusion_matrix(epoch, logs, logdir, model, batch_test, class_names = None, freq = 5, output_adapter = lambda x: x):
   file_writer_cm = tf.summary.create_file_writer(logdir + '/confusion_matrix')
   # Use the model to predict the values from the validation dataset.
   if epoch % freq != 0:
@@ -79,8 +79,9 @@ def log_confusion_matrix(epoch, logs, logdir, model, batch_test, class_names = N
   # num = 10
   # rand_idx = np.random.randint(low = 0, high = n-num-1)
   # test_pred_raw = model.predict(images_data_test[num:num+10])
-  test_pred_raw = model.predict(sample_image)
-  test_pred = np.argmax(test_pred_raw, axis=-1)
+  test_pred = model.predict(sample_image)
+  # test_pred = np.argmax(test_pred_raw, axis=-1)
+  test_pred = output_adapter(test_pred)
 
   # Calculate the confusion matrix.
   cm = confusion_matrix(np.argmax(sample_label, axis = -1).reshape(-1), test_pred.reshape(-1))

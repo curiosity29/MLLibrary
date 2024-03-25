@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow.keras.backend as K
 from General.Basic import poly_to_mask
 from functools import partial
+import cv2
 # import tensorflow_models as tfm
 """ To do:
 
@@ -12,7 +13,7 @@ add probability to random layer
 """ 
 class Augment1(tf.keras.layers.Layer):
   def __init__(self, seed = 42, size = (256,256), rotate = None, noise = None, 
-  zoom = None, brightness = None, center = False, shade = None, 
+  zoom = None, brightness = None, offset = None, shade = None, 
   contrast = None, saturation = None,
   probs = [0.5]*5, **ignore):
     super().__init__()
@@ -35,9 +36,9 @@ class Augment1(tf.keras.layers.Layer):
     if brightness is not None:
       self.brighter = layers.RandomBrightness(brightness, value_range = [0.0, 1.0], seed = seed)
 
-    self.center = center
-    if center:
-      self.centerer = layers.CenterCrop(size[0]//2, size[1]//2)
+    self.offset = offset
+    if offset is not None:
+      self.centerer = layers.CenterCrop(size[0] - offset, size[1] - offset)
 
     self.shade = shade
     if shade is not None:
@@ -63,8 +64,13 @@ class Augment1(tf.keras.layers.Layer):
     if self.contrast is not None:
       inputs = self.contraster(inputs, training = True)
     if self.saturation is not None:
-      inputs = self.saturater(inputs, training = True)
-    
+      ## apply saturation to the first 3 channels
+      ## (random saturation only work for rgb channels)
+      
+      # inputs[..., :3] = self.saturater(inputs[..., :3], training = True)
+      saturated_3 = self.saturater(inputs[..., :3], training = True)
+      
+      inputs = tf.concat([saturated_3, inputs[..., 3:]], axis = -1)
     if self.shade is not None:
       inputs = self.shader(inputs, training = True)
 
@@ -78,7 +84,7 @@ class Augment1(tf.keras.layers.Layer):
       stacked = self.zoomer(stacked, training = True)
 
 
-    if self.center:
+    if self.offset is not None:
       labels = self.centerer(tf.cast(stacked[..., num_channels:], dtype = tf.int16))
     else:
       labels = tf.cast(stacked[..., num_channels:], dtype = tf.int16)
@@ -165,6 +171,24 @@ class RandomShade(layers.Layer):
     new_image = K.stop_gradient( new_image ) # explicitly set no grad
     new_image.set_shape(image.shape) # explicitly set output shape
     return new_image, label
+
+def add_dilation(label, kernel_size, iterations = 1):
+  return cv2.dilate(label, np.ones((kernel_size, kernel_size)), iterations = iterations)
+class Dilation(layers.Layer):
+  def __init__(self, kernel_size = 9, iterations = 1, **kwargs):
+      super().__init__(**kwargs)
+      # self.n_shadow = n_shadow
+      self.kernel_size = kernel_size
+      self.dilater = partial(add_dilation, kernel_size = kernel_size, iterations = iterations)
+  def call( self, label ):
+    dilated_label = tf.py_function( self.dilater,
+                        [label],
+                        'float32',
+                        # stateful=False,
+                        name='cvOpt')
+    dilated_label = K.stop_gradient( dilated_label ) # explicitly set no grad
+    dilated_label.set_shape(label.shape) # explicitly set output shape
+    return dilated_label
 
 def random_saturation(image, factor):
   return tf.image.random_saturation(

@@ -5,7 +5,13 @@ def softmaxHead(model):
   return tf.keras.Model(model.input, tf.nn.softmax(model.output))
 
 def infer_head_max(model):
-  return tf.keras.Model(inputs = model.input, outputs = tf.math.argmax(model.output, axis = -1))
+  """
+    argmax with output last axis to dim = 1
+  """
+  return tf.keras.Model(inputs = model.input,
+  outputs = tf.expand_dims(
+    tf.math.argmax(model.output, axis = -1), axis = -1
+    ))
 def infer_head_confident(model, threshold = 0.9):
   """
     create a 0 mask to non confident pixel (prob < 0.9), keep the rest
@@ -39,3 +45,8 @@ def infer_head_indecisive(model, threshold = 0.5):
   output = tf.math.argmin(x, axis = -1)
 
   return tf.keras.Model(inputs = model.input, outputs = tf.math.argmax(model.output, axis = -1))
+
+def infer_u2net(model):
+  inputs = tf.keras.Input(shape = model.input.shape[1:])
+  outputs = model(inputs)[:, 0, ...]
+  return tf.keras.Model(inputs = inputs, outputs = outputs)
