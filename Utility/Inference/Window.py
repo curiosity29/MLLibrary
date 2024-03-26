@@ -20,7 +20,7 @@ class WindowExtractor():
     return int(self.n_col * self.n_row)
 
   def getRowCol(self, index):
-    return self.index // self.n_col, self.index % self.n_col
+    return index // self.n_col, index % self.n_col
 
   def next(self):
     self.row, self.col = self.getRowCol(self.index)
@@ -38,6 +38,7 @@ class WindowExtractor():
     # corX = row * self.window_shape[0] // self.step_divide
     # corY = col * self.window_shape[0] // self.step_divide
     return row, col
+
   def getWindow(self, row, col):
     """
     return top left coordinate and corner type: None, (0, 0), (0,1), ...
@@ -72,6 +73,11 @@ class WindowExtractor():
       corner_type[1] = 0
 
     return (corX, corY), corner_type
+
+  def getWindowIndex(self, index):
+    row, col = self.getRowCol(index)
+    return self.getWindow(row, col)
+        
 
 # windowExtractor = WindowExtractor(image_shape = (5000, 5000), window_shape = (512, 512), step_divide = 1)
 # for _ in range(110):
