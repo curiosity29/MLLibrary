@@ -1,6 +1,8 @@
 from Utility.Inference.Window import WindowExtractor
 from rasterio.windows import Window as rWindow
 import rasterio as rs
+import numpy as np
+
 def tif_metrics(path_predict, path_label):
     with rs.open(path_predict) as predict_src:
         with rs.open(path_label) as label_src:
