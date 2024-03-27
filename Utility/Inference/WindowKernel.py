@@ -120,7 +120,24 @@ def get_kernel(window_size):
     kernel = patch_weights
     return kernel
 
-def predict_windows_kernel(pathTif, pathSave, predictor, preprocess, window_size = 512, input_dim = 3, predict_dim = 1, output_type = "int8", batch_size = 1, step_divide = 1.25, kernel = None):
+def predict_windows_kernel(pathTif, pathSave, predictor, preprocess, window_size = 512, input_dim = 3, predict_dim = 1, output_type = "int8", batch_size = 1, step_divide = 4, kernel = None):
+    """
+        combine predictions of a predictor in each window in a big tif image
+
+        Args:
+            pathTif: path of input tif image to predict
+            pathSave: path of output tif image to save to
+            predictor: prediction model that have input of a batch of image and output a batch of output with channel last
+            preprocess: preprocess to apply to an image before using predictor
+            window_size: size of image (shape of window_size x window_size x channel)
+            input_dim: input image dimension/channel
+            output_dim: output image dimension/channel
+            output_type: output data type
+            batch_size: size of each batch to use to predict
+            step divide: size of stride to take window will be 1/step_divide
+            kernel: kernel to combine predictions, set to None to use default
+
+    """
     args = locals().copy()
     if kernel is None:
         kernel = get_kernel(window_size =window_size)
@@ -207,3 +224,39 @@ def predict_windows(pathTif, pathSave, predictor, preprocess, window_size = 512,
 
         pogbar.update(1)
       pogbar.close()
+
+
+
+
+"""
+
+
+Example usage:
+
+pathTif = "./image.tif"
+pathSave = "./prediction.tif"
+
+def predict(batch):
+    pred = model.predict(batch)
+    pred = np.argmax(pred, axis = -1)
+    pred = pred[..., np.newaxis]
+    return pred        # shape: (batch, size, size, output_dim)
+
+predictor = predict
+preprocess = lambda x: x/255
+
+predict_windows_kernel(pathTif, pathSave, predictor, preprocess, window_size = 512, input_dim = 3, predict_dim = 1, output_type = "int8", batch_size = 1, step_divide = 4, kernel = None)
+
+
+"""
+
+
+
+
+
+
+
+
+
+
+

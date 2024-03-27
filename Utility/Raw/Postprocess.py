@@ -31,7 +31,19 @@ def boundary_predict_adapter(batch, model):
   return pred
 
 
-def to_binary_mask(path_in, path_out, threshold = 0.5, invert = False):
+def to_binary_mask(path_in, path_out, threshold = 0.4, invert = False):
+  """
+    Take a threshold with value > threshold is mapped to 1., otherwise 0.
+    if invert is True, the opposite is executed.
+      Args:
+        path_in: input path of tif file to read
+        path_out: output path of binarized tif file to write to
+        threshold: threshold for pixel value to map to 0 or 1
+        invert: high value is mapped to 0 if invert is True
+      Return:
+        None
+  """
+
   with rs.open(path_in) as src:
     out_meta = src.meta
     bin_mask = src.read()
@@ -43,21 +55,38 @@ def to_binary_mask(path_in, path_out, threshold = 0.5, invert = False):
         dest.write(bin_mask)
 
 def invert_mask(path_in, path_out):
+    """
+      invert a tif file: new_value = 1 - old_value
+      Args:
+        path_in: input tif file to read
+        path_out: output tif file to write to
+      Return:
+        None
+    """
     with rs.open(path_in) as src:
         out_meta = src.meta
         mask = 1 - src.read()
     with rs.open(path_out, "w", **out_meta) as dest:
         dest.write(mask)
 ## simplify polygon:
-def filter_polygons(pathShape, pathSave, pathMask):
+def filter_polygons(pathShape, pathSave, pathMask, farm_threshold = 0.4):
 
+  """
+  calculate the mean statistic of pixels value from a tif file (pathMask), that is contained within each polygon in a shape file (pathShape).
+    Args:
+      pathShape: path of shape file to read that contains polygons
+      pathSave: path of shape file to write filtered polygons to
+      pathMask: path of tif file that contains deciding value to filter polygons
+      farm_threshold: threshold where polygons with a lower value will be removed
+    Return:
+      None
+  """
   stats = zonal_stats(pathShape, pathMask,
             # stats="count min mean max median")
             stats="mean")
   
   gdf_filtered = gd.read_file(pathShape)
 
-  farm_threshold = 0.4
   remove_list = []
   for idx in range(len(stats)):
     if stats[idx]['mean'] is not None and stats[idx]["mean"] < farm_threshold:
@@ -66,15 +95,21 @@ def filter_polygons(pathShape, pathSave, pathMask):
   
   gdf_filtered = gdf_filtered.drop(remove_list)
   gdf_filtered.to_file(pathSave)
-  # return gdf_filtered
 
-# gdf.drop(remove_list)
-  
 ## simplify polygon:
 def simplify_polygons(path_in, path_out):
+  """
+    Simplify each polygon or multipolygon in a shape file (path_in) and write to another shape file (path_out)
+
+      Args:
+        path_in: shape file to read in
+        path_out: shape file to write to
+      Return:
+        None
+  
+  """
   simplified_gdf = gd.read_file(path_in)
-  # simplified_gdf = gdf.copy()
-  # remove_list = []
+
   for idx, row in simplified_gdf.iterrows():
     geom = row["geometry"]
     # area = geom.area
@@ -89,11 +124,11 @@ def simplify_polygons(path_in, path_out):
     #   remove_list.append(idx)
     #   continue
     row["geometry"] = simple_geom
-    # print(row["geometry"])
+
     simplified_gdf.loc[idx] = row
 
   simplified_gdf.to_file(path_out)
-  # return simplified_gdf
+
 
 
 def get_angle(pt0, pt1, pt2):
@@ -124,6 +159,16 @@ def get_angle(pt0, pt1, pt2):
 
 
 def checkAngle(concave_set, coords, threshold = 30):
+  """
+    Check all angle in a concave set (the continuous difference from a polygon with its convex hull), then return all the point that make a
+    sharp angle with the start and end point at each side outside the concave set.
+      Args:
+        concave_set: continuous 1d array of point index in a polygon
+        coords: array of coordinates of all the points in the polygon
+        threshold: minimum angle to not be considered sharp
+      Return:
+        A array of index of point in the concave set that make a mentioned sharp angle
+  """
   coords = np.array(coords)
   n = len(concave_set)
   start = concave_set[0]
@@ -154,18 +199,23 @@ def checkAngle(concave_set, coords, threshold = 30):
 
 
 def refine_polygon(geom):
-  """
-  connect slender path (currently not implemented):
-        get distance to extended cut
-        get distance to mid point of cvhull dc
-        if dedges > k * dc:
-          extends
-          create 2 new polygon
-          recursion
-        else:
-          remove point
-          recursion
+  # connect slender path (currently not implemented):
+  #       get distance to extended cut
+  #       get distance to mid point of cvhull dc
+  #       if dedges > k * dc:
+  #         extends
+  #         create 2 new polygon
+  #         recursion
+  #       else:
+  #         remove point
+  #         recursion
 
+  """
+    Refine a polygon by removing all concave point that make a sharp angle
+      Args:
+        polygon of shapely
+      Return:
+        polygon of shapely with some mentioned point removed
   """
 
   # simple_geom = geom.simplify(4., preserve_topology=False)
@@ -205,28 +255,18 @@ def refine_polygon(geom):
 
   polygon = Polygon(keep_coords)
 
-
   return polygon
 
+def refine_polygons(path_in, path_out = None, maximum_area = 100 * 1000.):
 
-
-  # print(len(sharp_indexs))
-  # if len(keep_coords) != len(geom_coords):
-  #   x, y = geom.exterior.xy
-  #   plt.subplot(121)
-  #   plt.plot(x, y)
-  #   x, y = polygon.exterior.xy
-  #   plt.subplot(122)
-  #   plt.plot(x, y)
-  #   plt.show()
-
-
-
-  return polygon
-
-def refine_polygons(path_in, path_out = None):
   """
-    save path = None mean no saving and return result
+    Refine all the polygon in a shape file with all the polygon that has too large area removed and refine the rest by removing 
+    all the sharp angle.
+      Args:
+        path_in: input shape file contain the polygons or multipolygons to refine
+        path_out: output shape file to write the new refined polygons or multipolygons to
+      Return:
+        None or the geopandas frame if path_out is None
   """
   gdf = gd.read_file(path_in)
   refined_gdf = gdf.copy()
@@ -235,7 +275,6 @@ def refine_polygons(path_in, path_out = None):
   for idx, row in gdf.iterrows():
 
     # eps = 0.1
-    maximum_area = 100 * 1000. # 100,000 m^2
     geom = row["geometry"]
       
     if geom is None:
@@ -247,14 +286,19 @@ def refine_polygons(path_in, path_out = None):
       geoms = list(geom.geoms)
       polygons = []
       for geom in geoms:
+
         if geom.area > maximum_area:
-            row_remove_list.append(idx)
-            continue
+          continue
+
         polygons.append(refine_polygon(geom))
+      if len(polygons) == 0:
+         row_remove_list.append(idx)
+         continue
       polygon = geometry.MultiPolygon(polygons)
 
 
     elif geom.geom_type == "Polygon":
+
 
       if geom.area > maximum_area:
         row_remove_list.append(idx)
@@ -277,6 +321,14 @@ def refine_polygons(path_in, path_out = None):
     refined_gdf.to_file(path_out)
 
 def refine_opening(path_in, path_out, size = 7):
+    """
+      refine a mask tif file with morphological opening
+        Args:
+          path_in: input tif file to read in
+          path_out: output tif file to write to
+        Return:
+          None
+    """
     with rs.open(path_in) as src:
         out_meta = src.meta
         image = src.read()
@@ -286,7 +338,14 @@ def refine_opening(path_in, path_out, size = 7):
         dest.write(image[np.newaxis, ...])
         
 def refine_buffer(path_in, path_out, distance = 1.):
-
+    """
+      refine all the polygon or multipolygons in a shape file with buffering (shapely)
+        Args:
+          path_in: input shape file to read in
+          path_out: output shape file to write to
+        Return:
+          None
+    """
     gdf = gd.read_file(path_in)
 
     for idx, row in gdf.iterrows():
@@ -311,33 +370,60 @@ def refine_buffer(path_in, path_out, distance = 1.):
         gdf.loc[idx] = row
     gdf.to_file(path_out)
     
-def trim_paths(mask, padding = 20, threshold = 0.5, repeat = 5):
-    for _ in range(repeat):
-        bin_mask = np.where(mask > threshold, 1., 0.)
-        padding = 20
-        skeleton = skeletonize(bin_mask).astype(bool).astype(np.uint8)
-        untrimmed = skeleton[padding:-padding, padding:-padding, 0]
-        untrimmed = np.pad(untrimmed, padding, mode='constant', constant_values=1)
-        trimmed = untrimmed
-        # plotN(untrimmed, trimmed, n_row = 1)
-        for _ in range(100):
+    
+def trim_paths(bin_mask, padding = 10, repeat = 5, length = 100, use_opening = False):
+  """
+    Remove (change pixel to zeros) all the incomplete path in a binary of boundary (paths) mask using repeated skeletonize and removing endpoint
+      Args:
+        bin_mask: 2d binary mask
+        padding: the amount of padding for the mask at the edge (to 1.) to avoid removal of incomplete path at the edge
+        repeat: the amount of repeat each skeletonize and masking cycle
+        length: the maximum expected length of paths to remove
+      Return:
+        new 2d binary mask with removed imcomplete paths
+  """
+  if len(bin_mask.shape) > 2:
+    bin_mask = bin_mask[..., 0]
+  kernel = np.ones((3,3)).astype(np.uint8)
+  kernel5 = np.ones((5,5)).astype(np.uint8)
+  for _ in range(repeat):
+      # bin_mask = np.where(mask > threshold, 1., 0.)
+      skeleton = skeletonize(bin_mask).astype(bool).astype(np.uint8)
+      untrimmed = skeleton[padding:-padding, padding:-padding]
+      untrimmed = np.pad(untrimmed, padding, mode='constant', constant_values=1)
+      trimmed = untrimmed.astype(np.uint8)
+      # plotN(untrimmed, trimmed, n_row = 1)
+      for _ in range(length):
             trimmed = cv2.filter2D(trimmed.astype(np.uint8), -1, kernel = np.ones((3,3))) * trimmed
             trimmed = np.where(trimmed < 3, 0, 1)
-        # print(trimmed.shape)
-        # np.unique(skeleton_type)
-        
-        dif = np.where(untrimmed > trimmed, 1, 0)
-        dil_dif = cv2.dilate(dif.astype(np.uint8), np.ones((3,3)), iterations = 1)
-        mask = np.where(dil_dif > 0, 0, mask[..., 0])[..., np.newaxis]
-        # plt.show()
 
-  # mask[padding:-padding, padding:-padding] = trimmed[padding:-padding, padding:-padding, np.newaxis]
+      
+      dif = np.where(untrimmed > trimmed, 1, 0)
+      dil_dif = cv2.dilate(dif.astype(np.uint8), kernel, iterations = 1)
+      bin_mask = np.where(dil_dif > 0, 0, bin_mask)
+      if use_opening:
+        bin_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_OPEN, kernel5)
+      # plt.show()
 
-    return mask
+# mask[padding:-padding, padding:-padding] = trimmed[padding:-padding, padding:-padding, np.newaxis]
 
+  return bin_mask
 
-def trim_paths_window(path_in, path_out, threshold = 0.5):
-  predictor = lambda batch: np.array([trim_paths(x, padding = 20, threshold = threshold, repeat = 5) for x in batch])
+def trim_paths_window(path_in, path_out, length = 100, repeat = 5):
+  """
+    Remove (change pixel to zeros) all the incomplete path in a binary (uint8) tif file of boundary (paths) mask using repeated skeletonize and removing endpoint,
+    using trim_paths function
+      Args:
+        path_in: input tif file to read in
+        path_out: output tif file to write to
+        repeat: the amount of repeat each skeletonize and masking cycle
+        length: the maximum expected length of paths to remove
+
+      Return:
+        None
+  """
+  predictor = lambda batch: np.array([trim_paths(x, padding = 20, repeat = repeat, length = length)[..., np.newaxis] for x in batch])
+
   preprocess = lambda x: x
   
   predict_windows(pathTif = path_in, pathSave = path_out, predictor = predictor, preprocess = preprocess,
