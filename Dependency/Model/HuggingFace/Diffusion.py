@@ -66,6 +66,8 @@ def get_model(image_size = 128, config = get_config()):
         ),
     )
 
+    return model
+
 def load_model(ckpt_path, config = get_config()):
     model = UNet2DModel.from_pretrained(ckpt_path)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)

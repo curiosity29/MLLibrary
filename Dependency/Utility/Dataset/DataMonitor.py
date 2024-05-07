@@ -108,6 +108,7 @@ class RawDataMonitor():
             with open(self.monitor_file_json) as src:
                 stats = json.load(src)
         else:
+            os.makedirs(os.path.split(self.monitor_file)[0], exist_ok=True)
             stats = {}
 
         images_path = glob.glob(os.path.join(self.input_image_folder, "*.tif"))
