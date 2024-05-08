@@ -68,6 +68,19 @@ def get_model(image_size = 128, config = get_config()):
 
     return model
 
+def get_all(config = get_config()):
+    model = get_model(config = config)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=config.lr_warmup_steps,
+        num_training_steps=(config.num_training_steps * config.num_epochs),
+    )
+
+    noise_scheduler = DDPMScheduler(num_train_timesteps=1000)
+
+    return model, optimizer, lr_scheduler, noise_scheduler
+
 def load_model(ckpt_path, config = get_config()):
     model = UNet2DModel.from_pretrained(ckpt_path)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
