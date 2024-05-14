@@ -1,1 +1,5 @@
-Just a personal library, nothing to see here
+create environment:
+
+conda create env -n <your_env_name> -f environment.yaml
+
+
