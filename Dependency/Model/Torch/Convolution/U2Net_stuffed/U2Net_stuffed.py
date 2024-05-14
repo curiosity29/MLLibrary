@@ -64,53 +64,6 @@ class RSU(nn.Module):
                 return getattr(self, f'en_{height}')(x)
     
         return x + unet(x)
-    
-
-class RSU_same_padding(nn.Module):
-    def __init__(self, name, height, in_ch = 3, mid_ch = 3, out_ch= 3, dilated = True, padding = "same"):
-        super(RSU_same_padding, self).__init__()
-        self.name = name
-        self.height = height
-        self.dilated = dilated
-        self._make_layers(height, in_ch, mid_ch, out_ch, dilated, padding = padding)
-
-    def _make_layers(self, height, in_ch, mid_ch, out_ch, dilated = 1, padding = "same"):
-        self.add_module("cbr_in", CoBaRe(in_ch, out_ch, padding = padding))
-        self.add_module("down_1", nn.MaxPool2d(2, stride = 2, ceil_mode = True))
-        self.add_module("en_1", CoBaRe(out_ch, mid_ch, padding = padding))
-        self.add_module("de_1", CoBaRe(mid_ch *2, out_ch, padding = padding))
-
-        for i in range(2, self.height):
-            dilate = 1 if not dilated else 2 ** (i - 1)
-            self.add_module(f"en_{i}", CoBaRe(mid_ch, mid_ch, dilate = dilate, padding = padding))
-            self.add_module(f"de_{i}", CoBaRe(mid_ch * 2, mid_ch, dilate = dilate, padding = padding))
-    
-        dilate = 2 if not dilated else 2 ** (height - 1)
-        self.add_module(f"en_{height}", CoBaRe(mid_ch, mid_ch, dilate = dilate, padding = padding))
-
-    # def forward(self, x):
-
-    
-    def forward(self, x):
-        sizes = _size_map(x, self.height)
-        x = self.cbr_in(x)
-
-    
-        # U-Net like symmetric encoder-decoder structure
-        def unet(x, height=1):
-            if height < self.height:
-                x1 = getattr(self, f'en_{height}')(x)
-                if not self.dilated and height < self.height - 1:
-                    x2 = unet(getattr(self, 'downsample')(x1), height + 1)
-                else:
-                    x2 = unet(x1, height + 1)
-    
-                x = getattr(self, f'de_{height}')(torch.cat((x2, x1), 1))
-                return _upsample_like(x, sizes[height - 1]) if not self.dilated and height > 1 else x
-            else:
-                return getattr(self, f'en_{height}')(x)
-    
-        return x + unet(x)
 
 # rsu = RSU(name = "en1", height = 7)
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -121,11 +74,10 @@ class RSU_same_padding(nn.Module):
 
 
 class U2NET(nn.Module):
-    def __init__(self, cfgs, out_ch, sigmoid_head = True):
+    def __init__(self, cfgs, out_ch):
         super(U2NET, self).__init__()
         self.out_ch = out_ch
         self._make_layers(cfgs)
-        self.sigmoid_head = sigmoid_head
 
     def forward(self, x):
         sizes = _size_map(x, self.height)
@@ -137,6 +89,10 @@ class U2NET(nn.Module):
                 x1 = getattr(self, f'stage{height}')(x)
                 x2 = unet(getattr(self, 'downsample')(x1), height + 1)
                 x = getattr(self, f'stage{height}d')(torch.cat((x2, x1), 1))
+
+
+
+                
                 side(x, height)
                 return _upsample_like(x, sizes[height - 1]) if height > 1 else x
             else:
@@ -156,10 +112,7 @@ class U2NET(nn.Module):
             x = torch.cat(maps, 1)
             x = getattr(self, 'outconv')(x)
             maps.insert(0, x)
-            if self.sigmoid_head:
-                return [torch.sigmoid(x) for x in maps]
-            else:
-                return [x for x in maps]
+            return [torch.sigmoid(x) for x in maps]
 
         unet(x)
         maps = fuse()
@@ -170,7 +123,7 @@ class U2NET(nn.Module):
         self.add_module('downsample', nn.MaxPool2d(2, stride=2, ceil_mode=True))
         for k, v in cfgs.items():
             # build rsu block
-            self.add_module(k, RSU_same_padding(v[0], *v[1]))
+            self.add_module(k, RSU(v[0], *v[1]))
             if v[2] > 0:
                 # build side layer
                 self.add_module(f'side{v[0][-1]}', nn.Conv2d(v[2], self.out_ch, 3, padding=1))
@@ -178,7 +131,7 @@ class U2NET(nn.Module):
         self.add_module('outconv', nn.Conv2d(int(self.height * self.out_ch), self.out_ch, 1))
 
 
-def U2NET_full(in_ch = 3, out_ch = 1, sigmoid_head = True):
+def U2NET_full(in_ch = 3, out_ch = 1):
     full = {
         # cfgs for building RSUs and sides
         # {stage : [name, (height(L), in_ch, mid_ch, out_ch, dilated), side]}
@@ -194,10 +147,10 @@ def U2NET_full(in_ch = 3, out_ch = 1, sigmoid_head = True):
         'stage2d': ['De_2', (6, 256, 32, 64), 64],
         'stage1d': ['De_1', (7, 128, 16, 64), 64],
     }
-    return U2NET(cfgs=full, out_ch=out_ch, sigmoid_head = sigmoid_head)
+    return U2NET(cfgs=full, out_ch=out_ch)
 
 
-def U2NET_lite(in_ch = 3, out_ch = 1, sigmoid_head = True):
+def U2NET_lite(in_ch = 3, out_ch = 1):
     lite = {
         # cfgs for building RSUs and sides
         # {stage : [name, (height(L), in_ch, mid_ch, out_ch, dilated), side]}
@@ -213,10 +166,10 @@ def U2NET_lite(in_ch = 3, out_ch = 1, sigmoid_head = True):
         'stage2d': ['De_2', (6, 128, 16, 64), 64],
         'stage1d': ['De_1', (7, 128, 16, 64), 64],
     }
-    return U2NET(cfgs=lite, out_ch=out_ch, sigmoid_head = sigmoid_head)
+    return U2NET(cfgs=lite, out_ch=out_ch)
 
-def get_u2net(version = "full", in_ch =3, out_ch =1, sigmoid_head = True):
-    args = dict(in_ch = in_ch, out_ch = out_ch, sigmoid_head = sigmoid_head)
+def get_u2net(version = "full", in_ch =3, out_ch =1):
+    args = dict(in_ch = in_ch, out_ch = out_ch)
     match version:
         case "full":
             return U2NET_full(**args)

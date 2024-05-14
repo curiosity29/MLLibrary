@@ -13,7 +13,7 @@ class FinalDataset(Dataset):
     """
     def __init__(self, name, image_folder, label_folder, window_size = 512, channel_last = False,
                 status_file = "./Status/dataset_status.json", command_file = "./Command/command.json", command_section ="",
-                restart_all = False):
+                restart_all = False, verbose = 0):
         self.image_folder = image_folder
         self.label_folder = label_folder
         self.window_size = window_size
@@ -24,6 +24,7 @@ class FinalDataset(Dataset):
         self.command_file = command_file
         self.command_section = command_section
         self.name = name
+        self.verbose = verbose
         if restart_all:
             self.restart()
         
@@ -92,8 +93,13 @@ class FinalDataset(Dataset):
         label_file = os.path.join(self.label_folder, f"label_{idx}.npy")
         return np.load(image_file), np.load(label_file)
 
+    def log(self, message, level = 0):
+        if self.verbose >= level:
+            print(message)
     def __getitem__(self, idx):
         self.save_status()
+        self.log(f"loading {idx}", level = 1)
+
         match self.picker:
             case "random":
                 return self.pick_random(idx)

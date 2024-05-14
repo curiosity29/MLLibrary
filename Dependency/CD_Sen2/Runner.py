@@ -21,7 +21,6 @@ def get_loss_calculator():
         squared_pred=False, jaccard=False, reduction="mean", 
         smooth_nr=1e-05, smooth_dr=1e-05, batch=False, weight=None
     )
-
     tversky_loss = TverskyLoss(
         include_background=True, to_onehot_y=False, 
         sigmoid=False, softmax=False, other_act=None, 

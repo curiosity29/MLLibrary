@@ -17,15 +17,15 @@ from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning.callbacks import LearningRateMonitor
 import torch.nn as nn
 
-from .u2net_loss import get_loss
-from . import U2Net
+from . import ff
+from .ff_loss import get_loss
+
 
 
 class Evaluater():
     def __init__(self, dataloader, checkpoint_manager_in, checkpoint_manager_out, metrics = {}, metrics_calculator = {}, tb_writer = None, model = None,
                 eval_length = 20, fig_drawer = None, loss_name = "bce", loss_args = {},
-                device = "cuda", writer = None, model_args = {}, 
-                do_measure_time = False, verbose = 0):
+                device = "cuda", writer = None, model_args = {}, verbose = 0):
 
         self.eval_length = eval_length
         self.checkpoint_manager_in = checkpoint_manager_in
@@ -36,7 +36,7 @@ class Evaluater():
         self.dataIterator = iter(dataloader)
         self.model_args = model_args.copy()
 
-        self.loss = get_loss(base_loss = loss_name, loss_args = loss_args, device = device)
+        self.loss = get_loss(base_loss = loss_name, loss_args = loss_args, device=device)
         self.device = device
         self.tb_writer = tb_writer
         self.eval_step_index = 0
@@ -45,7 +45,6 @@ class Evaluater():
         self.metrics_calculator = metrics_calculator.copy() # dict of name: func
         self.running_metrics = metrics.copy()
         self.verbose = verbose
-        self.do_measure_time = do_measure_time
         
         self.fig_drawer = fig_drawer
         if model is None:
@@ -56,7 +55,7 @@ class Evaluater():
 
     
     def __build__(self):
-        model = U2Net.get_u2net(**self.model_args)
+        model = ff.get_ff(**self.model_args)
         model.to(self.device)
 
         self.model = model
@@ -110,8 +109,8 @@ class Evaluater():
             else:
                 inputs_v, labels_v = Variable(inputs, requires_grad=False), Variable(labels, requires_grad=False)
 
-        d0, d1, d2, d3, d4, d5, d6 = self.model(inputs_v)
-        return d0, d1, d2, d3, d4, d5, d6
+        d0 = self.model(inputs_v)
+        return d0
         
     def eval_step(self, data, eval_step_index, plot_image = False):
 
@@ -133,20 +132,23 @@ class Evaluater():
             else:
                 inputs_v, labels_v = Variable(inputs, requires_grad=False), Variable(labels, requires_grad=False)
 
-            d0, d1, d2, d3, d4, d5, d6 = self.model(inputs_v)
-            loss2, loss = self.loss(d0, d1, d2, d3, d4, d5, d6, labels_v)
+            d0 = self.model(inputs_v)
+            loss = self.loss(d0, labels_v)
             for metric_name, calculator in self.metrics_calculator.items():
                 self.metrics[metric_name] = calculator(labels_v, d0)
             # running_vloss += loss.data.item()
             loss_value = loss.data.item()
             self.metrics["loss"] = loss_value
             if plot_image and self.tb_writer is not None and self.fig_drawer is not None:
-                plot_index = np.random.randint(0, inputs.shape[0])
+
+                ### with logit output
+                d0 = nn.Sigmoid()(d0)
+                ##
                 self.tb_writer.add_figure('Predictions',
-                    self.fig_drawer(inputs[plot_index].cpu().detach().numpy(), labels[plot_index].cpu().detach().numpy(), d0[plot_index].cpu().detach().numpy()),
+                    self.fig_drawer(inputs[0].cpu().detach().numpy(), labels[0].cpu().detach().numpy(), d0[0].cpu().detach().numpy()),
                     global_step=self.epoch, close = True)
 
-            del d0, d1, d2, d3, d4, d5, d6, loss2, loss
+            del d0, loss
             
         # return loss_value
 
@@ -169,8 +171,8 @@ class Evaluater():
         else:
             inputs_v, labels_v = Variable(inputs, requires_grad=False), Variable(labels, requires_grad=False)
 
-        d0, d1, d2, d3, d4, d5, d6 = self.model(inputs_v)
-        loss2, loss = self.loss(d0, d1, d2, d3, d4, d5, d6, labels_v)
+        d0 = self.model(inputs_v)
+        loss = muti_bce_loss_fusion(d0, labels_v)
         metrics = {}
         for metric_name, calculator in self.metrics_calculator.items():
             metrics[metric_name] = calculator(labels_v, d0)
@@ -203,7 +205,7 @@ class Evaluater():
                 break
                 
         for key in self.running_metrics.keys():
-            self.running_metrics[key] = self.running_metrics[key]/ idx# self.eval_length
+            self.running_metrics[key] = self.running_metrics[key]/self.eval_length
         # self.metrics["loss"] = avg_vloss 
         self.epoch += 1
 
@@ -212,7 +214,5 @@ class Evaluater():
             
         self.save_status()
 
-    def execute(self, num_loop: int = 2):
-        for _ in range(num_loop):
-            self.eval()
-        self.save_status()
+    def execute(self):
+        self.eval()

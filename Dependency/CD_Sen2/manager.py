@@ -11,6 +11,9 @@ from Dependency.Utility.Dataset.Extractor import RawDataset
 from Dependency.Model.Torch.Convolution.U2Net.trainer_torch_u2net import Trainer
 from Dependency.Model.Torch.Convolution.U2Net.evaluater_torch_u2net import Evaluater
 
+# from Dependency.Model.Torch.Convolution.Simple.trainer_ff import Trainer
+# from Dependency.Model.Torch.Convolution.Simple.evaluater_ff import Evaluater
+
 from Dependency.Utility.Process.process import Process_command
 from Dependency.Utility.Callbacks.checkpoint_manager import Checkpoint_manager
 from Dependency.Utility.Inference.Inferer import Inferer
@@ -88,13 +91,29 @@ class Manager():
         model_configs = configs["Model"]
         window_size = model_configs["window_size"]
         n_channel = model_configs["n_channel"]
-        n_class= model_configs["n_class"]
+        n_class = model_configs["n_class"]
+        # mid_ch = model_configs["mid_ch"]
+        loss_args = model_configs["loss_args"]
+        optimizer_args = model_configs["optimizer_args"]
+        lr_scheduler_args = model_configs["lr_scheduler_args"]
         model_version = model_configs["version"]
+        sigmoid_head = model_configs["sigmoid_head"]
         model_args = dict(
             in_ch = n_channel,
             out_ch = n_class,
+            # mid_ch = mid_ch,
             version = model_version,
+            sigmoid_head = sigmoid_head,
         )
+
+        ## Data augmentation
+
+        augment_configs = configs["Augmentation"]
+        aug_cloud_prob = augment_configs["cloud_prob"]
+        aug_noise_std = augment_configs["noise"]
+        aug_flip = augment_configs["flip"]
+
+
 
         ### Train_checkpoint
         checkpoint_configs = configs["Train_checkpoint"]
@@ -137,8 +156,13 @@ class Manager():
         image_preprocess = get_image_preprocess(stats_file = raw_data_preprocess_stats_file, mode = raw_data_preprocess_mode) # channel last preprocess
         label_preprocess = get_label_preprocess(n_class = n_class)
         metrics_calculator = get_metrics_calculator(n_class = n_class)
-        loss_calculator = get_loss_calculator()
-        augmentation = get_augmentation()
+        # loss_calculator = get_loss_calculator()
+        loss_calculator = {}
+        augmentation = get_augmentation(
+            cloud_prob = aug_cloud_prob,
+            noise_std = aug_noise_std,
+            flip = aug_flip,
+        )
 
         ### Tensorboard
         tb_configs = configs["Tensorboard"]
@@ -241,6 +265,10 @@ class Manager():
         augmentation = augmentation,
         metrics_calculator = loss_calculator,
         loss_name = loss_name,
+        loss_args = loss_args,
+        optimizer_args = optimizer_args,
+        lr_scheduler_args = lr_scheduler_args,
+        verbose = 0,
         )
     
         evaluater = Evaluater(
@@ -255,6 +283,9 @@ class Manager():
         fig_drawer = fig_drawer,
         metrics_calculator = metrics_calculator,
         model = trainer.model,
+        loss_name = loss_name,
+        loss_args = loss_args,
+        verbose = 0,
         )
 
         predictor = get_predictor(model = evaluater.model, mode = infer_mode)

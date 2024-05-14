@@ -1,31 +1,53 @@
+import torch
 import torch.nn as nn
 from functools import partial
 from torchvision.ops import sigmoid_focal_loss
-
-# bce_loss = nn.BCELoss(reduction='mean')
-
 from monai.losses import DiceFocalLoss
+from torch.nn import BCEWithLogitsLoss
 
-def muti_bce_loss_fusion(d0, d1, d2, d3, d4, d5, d6, labels_v, weights = [1.] * 7 , base_loss = "bce", class_weights = None):
+
+
+# ce_loss = nn.CrossEntropyLoss(weights = class_weights, reduction = "mean")
+# dice_focal_loss = DiceFocalLoss(
+#     include_background = True, to_onehot_y = False, 
+#     sigmoid = False, softmax = False, 
+#     jaccard = False,
+#     reduction = "mean",
+#     weight = None,
+#     gamma = 2.0,
+# )
+
+
+def get_loss(base_loss = "bce", loss_args = {}, class_weights = None, device = "cuda"):
     match base_loss:
         case "bce":
             base_loss = nn.BCELoss(reduction='mean')
-        case "focal":
-            base_loss = partial(sigmoid_focal_loss, reduction = "mean", alpha = -1)
-        case "ce":
-            base_loss = nn.CrossEntropyLoss(weights = class_weights, reduction = "mean")
-        case "dice_focal":
-            df_loss = DiceFocalLoss(
-                include_background = False, to_onehot_y = False, 
-                sigmoid = False, softmax = False, 
-                jaccard = False,
-                reduction = "mean",
-                weight = None,
-                gamma = 2.0,
-            )
-            base_loss =  df_loss
-            
+        case "sigmoid_focal":
+            base_loss = sigmoid_focal_loss#partial(sigmoid_focal_loss, reduction = "mean", alpha = -1)
+        # case "ce":
+        #     base_loss = nn.CrossEntropyLoss(weights = class_weights, reduction = "mean")
         
+        case "bce_logit":
+            base_loss = BCEWithLogitsLoss(reduction=loss_args["reduction"], pos_weight=torch.tensor(1.).view(1,1,1).to(device))
+
+        ##
+        case "dice_focal":
+            base_loss =  DiceFocalLoss(
+                    include_background = True, to_onehot_y = False, 
+                    sigmoid = False, softmax = False, 
+                    jaccard = False,
+                    reduction = "mean",
+                    weight = None,
+                    gamma = 2.0,
+                )
+        # case "bce_dice_focal":
+            # bce_dice_folcal_loss = lambda x: dice_focal_loss(x) + bce_loss(x)
+            # base_loss = bce_dice_folcal_loss
+            # base_loss = lambda x: 
+    return partial(loss_calc, base_loss = base_loss)
+        
+
+def loss_calc(d0, d1, d2, d3, d4, d5, d6, labels_v, weights = [1.] * 7, base_loss = None):
     loss0 = base_loss(d0,labels_v) * weights[0]
     loss1 = base_loss(d1,labels_v) * weights[1]
     loss2 = base_loss(d2,labels_v) * weights[2]

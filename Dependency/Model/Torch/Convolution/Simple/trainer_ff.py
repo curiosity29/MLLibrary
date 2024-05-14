@@ -15,21 +15,20 @@ from torchsummary import summary
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning.callbacks import LearningRateMonitor
-from .u2net_loss import get_loss
 import torch.nn as nn
 import time
-from . import U2Net
+from . import ff
+from .ff_loss import get_loss
 # import U2Net
 
 class Trainer():
     def __init__(self, dataloader, checkpoint_manager, train_length = 100, 
                  device = "cuda", model_args = {}, tb_writer = None,
                  metrics = {"loss": np.inf}, augmenter = None, model = None,
-                 augmentation = None, metrics_calculator = {},
-                clip_grad = False, loss_name = "bce", loss_args = {}, 
+                 augmentation = None, metrics_calculator = {}, loss_args = {},
+                clip_grad = False, loss_name = "dice_focal",
                 optimizer_args = {},
                 lr_scheduler_args = {}, 
-                do_measure_time = False,
                 verbose = 0):
         self.checkpoint_manager = checkpoint_manager
         self.train_length = train_length
@@ -39,15 +38,14 @@ class Trainer():
         self.train_step_index = 0
         self.clip_grad = clip_grad
         self.model_args = model_args.copy()
+        self.optimizer_args = optimizer_args.copy()
+        self.lr_scheduler_args = lr_scheduler_args.copy()
         self.device = device
         self.tb_writer = tb_writer
         self.metrics = metrics.copy()
         self.metrics_calculator = metrics_calculator.copy()
-        self.optimizer_args = optimizer_args.copy()
-        self.lr_scheduler_args = lr_scheduler_args.copy()
         self.running_metrics = metrics.copy()
         self.verbose = verbose
-        self.do_measure_time = do_measure_time
         
         self.model = model
         if augmentation is None:
@@ -61,35 +59,19 @@ class Trainer():
         
         
         self.__build__()
-
+        self.load_status()
         
     def __build__(self):
         if self.model is None:
-            self.model = U2Net.get_u2net(**self.model_args)
+            self.model = ff.get_ff(**self.model_args)
 
         self.model.to(self.device)
         optimizer = optim.Adam(self.model.parameters(), **self.optimizer_args)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **self.lr_scheduler_args)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 200, gamma=0.95)
         
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
-        self.load_status()
 
-    def measure_time(func):
-        def wrapper(*args, **kwargs):
-            self = args[0]
-            if self.do_measure_time:
-                start_time = time.time()
-                result = func(*args, **kwargs)
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-                print(f"Function '{func.__name__}' took {elapsed_time:.6f} seconds to execute.")
-                return result
-            else:
-                return func(*args, **kwargs)
-        return wrapper
-    
-    @measure_time
     def save_status(self):
         checkpoint_dict = self.checkpoint_manager.get_save_paths_new(index = self.train_step_index, metrics = self.running_metrics)
         save_dict = {
@@ -103,7 +85,6 @@ class Trainer():
         for checkpoint_path in checkpoint_dict.values():
             torch.save(save_dict, checkpoint_path)
 
-    @measure_time
     def load_status(self):
         checkpoint_path = self.checkpoint_manager.get_save_paths()["last_period"]
         if checkpoint_path is None or not os.path.exists(checkpoint_path):
@@ -119,7 +100,7 @@ class Trainer():
         
 
 
-    @measure_time
+    
     def train_step(self, data, train_step_index):
 
         ### 
@@ -144,8 +125,8 @@ class Trainer():
         # y zero the parameter gradients
         self.optimizer.zero_grad()
 
-        d0, d1, d2, d3, d4, d5, d6 = self.model(inputs_v)
-        loss2, loss = self.loss(d0, d1, d2, d3, d4, d5, d6, labels_v)
+        d0 = self.model(inputs_v)
+        loss = self.loss(d0, labels_v)
 
         loss.backward()
         if self.clip_grad:
@@ -155,7 +136,7 @@ class Trainer():
 
         # # print statistics
         loss_value = loss.data.item()
-        loss_tar =  loss2.data.item()
+
         # running_loss += loss_value
         # running_tar_loss += loss_tar
         self.metrics["loss"] = loss_value
@@ -165,7 +146,7 @@ class Trainer():
                     self.metrics[metric_name] = calculator(labels_v, d0)
                 
         # del temporary outputs and loss
-        del d0, d1, d2, d3, d4, d5, d6, loss2, loss
+        del d0, loss
 
 
     # def train_step_maker(self):
@@ -174,8 +155,6 @@ class Trainer():
     def verbose_print(self, message, level = 0):
         if level <= self.verbose:
             print(message)
-        
-    @measure_time
     def train(self):
         # self.verbose_print(f"start training (step {self.train_step_index})", level = 2)
         
@@ -200,15 +179,13 @@ class Trainer():
                 break
                 
         for key in self.running_metrics.keys():
-            self.running_metrics[key] = self.running_metrics[key]/ idx #self.train_length
+            self.running_metrics[key] = self.running_metrics[key]/self.train_length
         self.epoch += 1
+        self.save_status()
         
         self.verbose_print(f"start training (step {self.train_step_index})", level = 2)
 
-
-    def execute(self, train_loop: int = 10):
-        for _ in range(train_loop):
-            self.train()
-        self.save_status()
-
+    def execute(self):
+        self.train()
+        
     
