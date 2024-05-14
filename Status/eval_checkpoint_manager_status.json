@@ -1,0 +1,32 @@
+{
+    "name": "eval",
+    "period": 500,
+    "metrics": {
+        "loss": Infinity,
+        "precision": 0.0,
+        "recall": 0.0
+    },
+    "metrics_target": {
+        "loss": "min",
+        "precision": "max",
+        "recall": "max"
+    },
+    "status_file": "./Status/eval_checkpoint_manager_status.json",
+    "last_index": 0,
+    "last_checkpoint_index": {
+        "loss": 0,
+        "precision": 0,
+        "recall": 0,
+        "Period": 0
+    },
+    "checkpoint_extension": ".pth",
+    "time_format": "m%md%dH%HM%M",
+    "max_to_keep": 40,
+    "checkpoint_folder": "./Checkpoints/eval_checkpoints",
+    "subfolders": {
+        "Period": "./Checkpoints/eval_checkpoints/Period",
+        "loss": "./Checkpoints/eval_checkpoints/Best_loss",
+        "precision": "./Checkpoints/eval_checkpoints/Best_precision",
+        "recall": "./Checkpoints/eval_checkpoints/Best_recall"
+    }
+}

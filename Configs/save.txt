@@ -1,0 +1,8 @@
+"metrics": [
+            "loss",
+            "focal loss",
+            "dice loss",
+            "tversky loss"
+        ],
+        "metrics_init": [Infinity, Infinity, Infinity, Infinity],
+        "metrics_target": ["min", "min", "min", "min"],

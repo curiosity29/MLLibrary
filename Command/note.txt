@@ -1,0 +1,10 @@
++ raw data:
+    + mode: extract; none
+
++ Train data:
+    + picker: index; random; hard
+
++ Process:
+    + mode: none; wait; stop
+    + wait_time: sleep time (second) if mode = wait
+

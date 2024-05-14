@@ -1,0 +1,94 @@
+{
+    "Raw_data": {
+        "image_folder": "./Data/Raw_images",
+        "label_folder": "./Data/Raw_labels",
+        "status_file": "./Status/raw_dataset_status.json",
+        "meta_data_file": "./Status/item_meta.csv",
+        "preprocess_mode": "dynamic",
+        "preprocess_stats_file": "./Status/raw_data_monitor.json",
+        "step_divide": 2
+    },
+    "Augmentation": {
+        "noise": 0.03,
+        "flip": true,
+        "cloud_prob": 0.2
+    },
+    "Data": {
+        "train_image_folder": "./Data/Train_images",
+        "train_label_folder": "./Data/Train_labels",
+        "eval_image_folder": "./Data/Eval_images",
+        "eval_label_folder": "./Data/Eval_labels",
+        "command_file": "./Command/command.json",
+        "train_status_file": "./Status/train_dataset_status.json",
+        "eval_status_file": "./Status/eval_dataset_status.json",
+        "split_ratio": [0.8, 0.2],
+        "filter_threshold": 0.01 
+    },
+    "Runner": {
+        "train_length": 100,
+        "eval_length": 30,
+        "num_workers": 1,
+        "batch_size_train": 8,
+        "batch_size_eval": 8,
+        "device": "cuda",
+        "clip_grads": false,
+        "loss_name": "bce_logit"
+    },
+    "Model": {
+        "window_size": 128,
+        "n_channel": 8,
+        "n_class": 1,
+        "mid_ch": 32,
+        "loss_args": {
+            "pos_weight": 10.0,
+            "reduction": "mean"
+        },
+        "optimizer_args": {
+            "lr": 0.001, 
+            "betas": [0.9, 0.999], 
+            "eps":1e-08, 
+            "weight_decay": 0.8
+        },
+        "lr_scheduler_args": {
+            "step_size": 200, 
+            "gamma": 0.95
+        }
+    },
+    "Train_checkpoint": {
+        "status_file": "./Status/train_checkpoint_manager_status.json",
+        "period": 20,
+        "metrics": [],
+        "metrics_init": [],
+        "metrics_target": [],
+        "checkpoint_extension": ".pth",
+        "time_format": "m%md%dH%HM%M",
+        "max_to_keep": 10,
+        "root_folder": "./Checkpoints"
+    },
+    "Eval_checkpoint": {
+        "status_file": "./Status/eval_checkpoint_manager_status.json",
+        "period": 10,
+        "metrics": [
+            "loss",
+            "precision",
+            "recall"
+        ],
+        "metrics_init": [Infinity, 0.0, 0.0],
+        "metrics_target": [
+            "min",
+            "max",
+            "max"
+        ],
+        "checkpoint_extension": ".pth",
+        "time_format": "m%md%dH%HM%M",
+        "max_to_keep": 40,
+        "root_folder": "./Checkpoints"
+    },
+    "Tensorboard": {
+        "logdir": "./tb_logs_ff"
+    },
+    "Inference": {
+        "mode": "normal"
+        
+    }
+}

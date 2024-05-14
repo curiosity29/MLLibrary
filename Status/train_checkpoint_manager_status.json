@@ -1,0 +1,18 @@
+{
+    "name": "train",
+    "period": 500,
+    "metrics": {},
+    "metrics_target": {},
+    "status_file": "./Status/train_checkpoint_manager_status.json",
+    "last_index": 0,
+    "last_checkpoint_index": {
+        "Period": 0
+    },
+    "checkpoint_extension": ".pth",
+    "time_format": "m%md%dH%HM%M",
+    "max_to_keep": 10,
+    "checkpoint_folder": "./Checkpoints/train_checkpoints",
+    "subfolders": {
+        "Period": "./Checkpoints/train_checkpoints/Period"
+    }
+}

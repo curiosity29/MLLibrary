@@ -1,0 +1,8 @@
+{
+    "Paths": {
+        "checkpoint_folder": "./Checkpoints/eval_checkpoints"
+    },
+    "Vars": {
+        "last_index": "0"
+    }
+}

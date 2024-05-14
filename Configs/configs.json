@@ -1,0 +1,79 @@
+{
+    "Raw_data": {
+        "image_folder": "./Data/Raw_images",
+        "label_folder": "./Data/Raw_labels",
+        "status_file": "./Status/raw_dataset_status.json",
+        "meta_data_file": "./Status/item_meta.csv",
+        "preprocess_mode": "dynamic",
+        "preprocess_stats_file": "./Status/raw_data_monitor.json",
+        "step_divide": 1
+    },
+    "Augmentation": {
+        "noise": 0.0,
+        "flip": true,
+        "swap": false
+    },
+    "Data": {
+        "train_image_folder": "./Data/Train_images",
+        "train_label_folder": "./Data/Train_labels",
+        "eval_image_folder": "./Data/Eval_images",
+        "eval_label_folder": "./Data/Eval_labels",
+        "command_file": "./Command/command.json",
+        "train_status_file": "./Status/train_dataset_status.json",
+        "eval_status_file": "./Status/eval_dataset_status.json",
+        "split_ratio": [0.7, 0.3]
+    },
+    "Runner": {
+        "train_length": 1000,
+        "eval_length": 300,
+        "num_workers": 1,
+        "batch_size_train": 2,
+        "batch_size_eval": 2,
+        "device": "cuda",
+        "clip_grads": false,
+        "loss_name": "dice_focal"
+    },
+    "Model": {
+        "window_size": 512,
+        "n_channel": 8,
+        "n_class": 1,
+        "version": "full"
+    },
+    "Train_checkpoint": {
+        "status_file": "./Status/train_checkpoint_manager_status.json",
+        "period": 5,
+        "metrics": ["loss"],
+        "metrics_init": [Infinity],
+        "metrics_target": ["min"],
+        "checkpoint_extension": ".pth",
+        "time_format": "m%md%dH%HM%M",
+        "max_to_keep": 10,
+        "root_folder": "./Checkpoint2"
+    },
+    "Eval_checkpoint": {
+        "status_file": "./Status/eval_checkpoint_manager_status.json",
+        "period": 5,
+        "metrics": [
+            "loss",
+            "precision",
+            "recall"
+        ],
+        "metrics_init": [Infinity, 0.0, 0.0],
+        "metrics_target": [
+            "min",
+            "max",
+            "max"
+        ],
+        "checkpoint_extension": ".pth",
+        "time_format": "m%md%dH%HM%M",
+        "max_to_keep": 100,
+        "root_folder": "./Checkpoint"
+    },
+    "Tensorboard": {
+        "logdir": "./tb_logs3"
+    },
+    "Inference": {
+        "mode": "swapped"
+        
+    }
+}

@@ -1,0 +1,27 @@
+{
+    "Raw_data": {
+        "mode": "extract",
+        "restart": false
+    },
+    "Train_data": {
+        "picker": "index",
+        "restart": false
+    },
+    "Eval_data": {
+        "picker": "index",
+        "restart": false
+    },
+    "Process": {
+        "mode": "unrecognized command",
+        "wait_time": "0."
+    },
+    "Checkpoint": {
+        "restart": false
+    },
+    "Runner": {
+        "restart": false
+    },
+    "Manager": {
+        "mode": "done"
+    }
+}

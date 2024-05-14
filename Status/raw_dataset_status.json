@@ -1,0 +1,18 @@
+{
+    "State": {
+        "mode": "done extract",
+        "extracted_set": [
+            "./Data/Raw_images/image_00000.tif",
+            "./Data/Raw_images/image_00001.tif",
+            "./Data/Raw_images/image_00002.tif",
+            "./Data/Raw_images/image_00003.tif",
+            "./Data/Raw_images/image_00004.tif",
+            "./Data/Raw_images/image_00005.tif",
+            "./Data/Raw_images/image_00006.tif",
+            "./Data/Raw_images/image_00007.tif",
+            "./Data/Raw_images/image_00008.tif",
+            "./Data/Raw_images/image_00009.tif",
+            "./Data/Raw_images/image_00010.tif"
+        ]
+    }
+}
