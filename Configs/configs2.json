@@ -11,7 +11,7 @@
     "Augmentation": {
         "noise": 0.03,
         "flip": true,
-        "cloud_prob": 0.2
+        "cloud_prob": 0.1
     },
     "Data": {
         "train_image_folder": "./Data/Train_images",
@@ -28,21 +28,21 @@
         "train_length": 10,
         "eval_length": 2,
         "num_workers": 1,
-        "batch_size_train": 8,
-        "batch_size_eval": 8,
+        "batch_size_train": 3,
+        "batch_size_eval": 3,
         "device": "cuda",
         "clip_grads": false,
         "loss_name": "bce_logit"
     },
     "Model": {
-        "window_size": 128,
-        "n_channel": 8,
+        "window_size": 512,
+        "n_channel": 4,
         "n_class": 1,
         "version": "full",
         "sigmoid_head": false,
         "loss_args": {
             "reduction": "mean",
-            "pos_weight": 50.0
+            "pos_weight": 1.0
         },
         "optimizer_args": {
             "lr": 0.001, 
@@ -57,18 +57,18 @@
     },
     "Train_checkpoint": {
         "status_file": "./Status/train_checkpoint_manager_status.json",
-        "period": 500,
+        "period": 200,
         "metrics": [],
         "metrics_init": [],
         "metrics_target": [],
         "checkpoint_extension": ".pth",
         "time_format": "m%md%dH%HM%M",
-        "max_to_keep": 10,
+        "max_to_keep": 5,
         "root_folder": "./Checkpoints"
     },
     "Eval_checkpoint": {
         "status_file": "./Status/eval_checkpoint_manager_status.json",
-        "period": 500,
+        "period": 200,
         "metrics": [
             "loss",
             "precision",
@@ -82,11 +82,11 @@
         ],
         "checkpoint_extension": ".pth",
         "time_format": "m%md%dH%HM%M",
-        "max_to_keep": 40,
+        "max_to_keep": 10,
         "root_folder": "./Checkpoints"
     },
     "Tensorboard": {
-        "logdir": "./tb_logs_w2"
+        "logdir": "./tb_logs"
     },
     "Inference": {
         "mode": "normal"
