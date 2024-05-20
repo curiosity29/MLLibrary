@@ -14,7 +14,7 @@ from torch.autograd import Variable
 from torchsummary import summary
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from pytorch_lightning.callbacks import LearningRateMonitor
+
 from .u2net_loss import get_loss
 import torch.nn as nn
 import time
@@ -30,6 +30,7 @@ class Trainer():
                 optimizer_args = {},
                 lr_scheduler_args = {}, 
                 do_measure_time = False,
+                pretrain_path = None, ## restart with this checkpoint
                 verbose = 0):
         self.checkpoint_manager = checkpoint_manager
         self.train_length = train_length
@@ -63,6 +64,10 @@ class Trainer():
         self.__build__()
 
         
+        if pretrain_path is not None:
+            self.load_checkpoint(pretrain_path)
+
+        
     def __build__(self):
         if self.model is None:
             self.model = U2Net.get_u2net(**self.model_args)
@@ -89,7 +94,7 @@ class Trainer():
                 return func(*args, **kwargs)
         return wrapper
     
-    @measure_time
+    # @measure_time
     def save_status(self):
         checkpoint_dict = self.checkpoint_manager.get_save_paths_new(index = self.train_step_index, metrics = self.running_metrics)
         save_dict = {
@@ -103,7 +108,13 @@ class Trainer():
         for checkpoint_path in checkpoint_dict.values():
             torch.save(save_dict, checkpoint_path)
 
-    @measure_time
+    def load_checkpoint(self, checkpoint_path):
+        model_checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(model_checkpoint['model_state_dict'])
+        self.optimizer = optim.Adam(self.model.parameters(), **self.optimizer_args)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, **self.lr_scheduler_args)
+        # return self.model
+    # @measure_time
     def load_status(self):
         checkpoint_path = self.checkpoint_manager.get_save_paths()["last_period"]
         if checkpoint_path is None or not os.path.exists(checkpoint_path):
@@ -119,7 +130,7 @@ class Trainer():
         
 
 
-    @measure_time
+    # @measure_time
     def train_step(self, data, train_step_index):
 
         ### 
@@ -170,12 +181,16 @@ class Trainer():
 
     # def train_step_maker(self):
         
-        
+    def log_activation_map(self):
+
+
+        return 
+
     def verbose_print(self, message, level = 0):
         if level <= self.verbose:
             print(message)
         
-    @measure_time
+    # @measure_time
     def train(self):
         # self.verbose_print(f"start training (step {self.train_step_index})", level = 2)
         
@@ -201,13 +216,20 @@ class Trainer():
                 
         for key in self.running_metrics.keys():
             self.running_metrics[key] = self.running_metrics[key]/ idx #self.train_length
+
+        ## log weight
+        if self.tb_writer is not None:
+            for name, param in self.model.named_parameters():
+                if "weight" in name:  # Log only weight parameters
+                    self.tb_writer.add_histogram(name, param, global_step=self.train_step_index)
+
         self.epoch += 1
         
         self.verbose_print(f"start training (step {self.train_step_index})", level = 2)
 
 
-    def execute(self, train_loop: int = 10):
-        for _ in range(train_loop):
+    def execute(self, num_loop: int = 1):
+        for _ in range(num_loop):
             self.train()
         self.save_status()
 

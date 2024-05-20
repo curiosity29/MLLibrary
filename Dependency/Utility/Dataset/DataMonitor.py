@@ -48,6 +48,7 @@ class RawDataMonitor():
         self.header = ("image_index", "lows", "highs", "means", "shape", "proportions", "background_proportion")
 
     def wipe(self):
+        os.makedirs(os.path.split(self.monitor_file_json)[0], exist_ok=True)
         with open(self.monitor_file_json, "w") as dest:
             json.dump({}, dest, indent = 4)
         
@@ -103,7 +104,7 @@ class RawDataMonitor():
         )
         return current_stats
 
-    def append_stats(self):
+    def append_stats(self, sort = True):
         if os.path.exists(self.monitor_file_json):
             with open(self.monitor_file_json) as src:
                 stats = json.load(src)
@@ -112,7 +113,9 @@ class RawDataMonitor():
 
         images_path = glob.glob(os.path.join(self.input_image_folder, "*.tif"))
         labels_path = glob.glob(os.path.join(self.input_label_folder, "*.tif"))
-
+        if sort:
+            images_path.sort()
+            labels_path.sort()
         for image_path, label_path in zip(images_path, labels_path):
             
             index = image_index = int(image_path.split("_").pop().replace(".tif", ""))
@@ -127,6 +130,7 @@ class RawDataMonitor():
         
         # df = pd.DataFrame(data)
         # df.to_csv(self.monitor_file, index = False)
+        os.makedirs(os.path.split(self.monitor_file_json)[0], exist_ok=True)
         with open(self.monitor_file_json, "w") as dest:
             json.dump(stats, dest, indent = 4)
             
@@ -149,6 +153,7 @@ class RawDataMonitor():
             means = means
         ))
 
+        os.makedirs(os.path.split(self.meta_file)[0], exist_ok=True)
         with open(self.meta_file, "w") as dest:
             json.dump(meta, dest, indent = 4)
         

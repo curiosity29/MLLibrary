@@ -7,6 +7,7 @@ from ..Inference.Window import WindowExtractor
 from rasterio.windows import Window as rWindow
 from ..Preprocess.Normalize import scale, preprocess, preprocess_info
 import pandas as pd
+import matplotlib.pyplot as plt 
 # augmented
 # item_index -> origin_index, loss, metrics, augment
 import os, shutil, glob
@@ -23,12 +24,13 @@ class RawDataset():
                 step_divide = 1,
                 dynamic_preprocess = False, preprocess_info_file = None,
                 filterer = None, filter_threshold = 0.01,
-                restart_all = False, 
+                restart_all = False, sanity_check = 3,
                 
                 ):
         """
             save by a prob list to a list of output folder
         """
+        self.sanity_check = sanity_check
         self.input_image_folder = input_image_folder
         self.input_label_folder = input_label_folder
         self.output_image_folders = output_image_folders
@@ -218,6 +220,7 @@ class RawDataset():
        
     def get_data_file(self):
         image_files = glob.glob(os.path.join(self.input_image_folder, "*"), recursive=True)
+        image_files.sort()
         label_files = []
         matching_image_files = []
         for image_file in image_files:
@@ -256,6 +259,9 @@ class RawDataset():
         return image_name, label_name
 
     def extract_image(self):
+        if self.sanity_check > 0:
+            self.sanity_checking = self.sanity_check
+            
         image_files, label_files = self.get_data_file()
         if len(image_files) == 0:
             self.save_status()
@@ -265,6 +271,11 @@ class RawDataset():
                       for folder in self.output_image_folders]
 
         for image_file, label_file in zip(image_files, label_files):
+            if self.sanity_checking > 0:
+                print("image_index:" , image_index)
+                print("image_file: ", image_file)
+                print("label_file: ", label_file)
+                
             folder_index = self.output_folder_rotate() ## decide train or eval for each image
 
             extractor = self.create_extractor(image_file=image_file)
@@ -272,48 +283,73 @@ class RawDataset():
             ## save meta data
             self.append_data_stats(folder_index = folder_index, image_path=image_file, image_index=image_index)
 
+            info = self.dynamic_preprocess_info(image_index=image_index)
             ## extract to small image
-            while True:
+            with rs.open(image_file) as image_src:
+                with rs.open(label_file) as label_src:
+                    while True:
 
-                (corX, corY), corner_type = extractor.next()
-                if corX is None:
-                    break
-                
-                window = rWindow(corX, corY, self.window_size, self.window_size)
-                with rs.open(image_file) as src:
-                    image = src.read(window = window)
-                    if self.dynamic_preprocess:
-                        info = self.dynamic_preprocess_info(image_index=image_index)
-                        image = np.transpose(image, (1,2,0))
-                        image = self.image_preprocess(image, info)
-                        image = np.transpose(image, (2,0,1))
-                    elif self.image_preprocess is not None and not self.dynamic_preprocess:
-                        image = np.transpose(image, (1,2,0))
-                        image = self.image_preprocess(image)
-                        image = np.transpose(image, (2,0,1))
+                        (corX, corY), corner_type = extractor.next()
+                        if corX is None:
+                            break
+                        
 
-                    
-                with rs.open(label_file) as src:
-                    label = src.read(window = window)
-                    if self.label_preprocess is not None:
-                        label = self.label_preprocess(label)
-                        if not self.filterer(label):
-                            continue
-                if self.channel_last:
-                    return np.transpose(image, (1,2,0)), np.transpose(label, (1,2,0))
+                        window = rWindow(corX, corY, self.window_size, self.window_size)
+                        label = label_src.read(window = window)
+                        if self.label_preprocess is not None:
+                            label = self.label_preprocess(label)
+                            if not self.filterer(label):
+                                continue
 
-                # if corner_type != [-1, -1]:
-                #     return image, label, -1.
+                        if self.sanity_checking > 0:
+                            print(f"coordianate: corX = {corX}, corY = {corY}, window_size = {self.window_size}")
+                            print("label:")
+                            plt.imshow(label[0], label = "label")
+                            plt.show()
 
-                item_index = item_indexs[folder_index]
-                image_name, label_name = self.output_name_mapping(item_index)
-                np.save(os.path.join(self.output_image_folders[folder_index], image_name), image)
-                np.save(os.path.join(self.output_label_folders[folder_index], label_name), label)
-                self.save_item_status(folder_index, item_index, image_index, corX, corY)
-                item_indexs[folder_index] += 1
+                        image = image_src.read(window = window)
+                        if self.sanity_checking > 0:
+                            print(f"image when reading (min = {np.min(image, axis = (1,2))}, max = {np.max(image, axis = (1, 2))}): ")
+                            plt.imshow(np.transpose(image, (1,2,0))[..., :3]/np.max(image), label = "image when reading")
+                            plt.show()
+                        if self.dynamic_preprocess:
+                            image = np.transpose(image, (1,2,0))
+                            image = self.image_preprocess(image, info)
+                            if self.sanity_checking > 0:
+                                print("preprocess info: ", info)
+                                print(f"image after preprocess (min = {np.min(image, axis = (0,1))}, max = {np.max(image, axis = (0,1))}): ")
+                                plt.imshow(image[..., :3], label = "image after preprocess")
+                                plt.show()
+                            image = np.transpose(image, (2,0,1))
+                        elif self.image_preprocess is not None and not self.dynamic_preprocess:
+                            image = np.transpose(image, (1,2,0))
+                            image = self.image_preprocess(image)
+                            image = np.transpose(image, (2,0,1))
+
+                        self.sanity_checking -= 1
+                            
+                        if self.channel_last:
+                            return np.transpose(image, (1,2,0)), np.transpose(label, (1,2,0))
+
+                        # if corner_type != [-1, -1]:
+                        #     return image, label, -1.
+
+                        item_index = item_indexs[folder_index]
+                        image_name, label_name = self.output_name_mapping(item_index)
+
+                        if self.sanity_checking > 0:
+                            print("saving image to: ", os.path.join(self.output_image_folders[folder_index], image_name))
+                            print("saving label to: ", os.path.join(self.output_label_folders[folder_index], label_name))
+                            
+                        np.save(os.path.join(self.output_image_folders[folder_index], image_name), image)
+                        np.save(os.path.join(self.output_label_folders[folder_index], label_name), label)
+                        self.save_item_status(folder_index, item_index, image_index, corX, corY)
+                        item_indexs[folder_index] += 1
                     # return self[idx + 1 if idx < self.length else 0]
-                # return image, label, 0.
+                    # return image, label, 0.
             image_index += 1
             self.extracted_set.append(image_file)
+
         self.save_status()
+
         return f"extracted: {len(image_files)}"

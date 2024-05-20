@@ -26,12 +26,13 @@ from Dependency.CD_Sen2.Inference import get_predictor
 from Dependency.CD_Sen2.augmenter import get_augmentation
 class Manager():
     def __init__(self, configs_file, restart_raw_data = False, restart_train_data = False, restart_eval_data = False, restart_checkpoint = False, restart_runner = False,
-                 model = None,
+                 model = None, pretrain_path = None,
                 setup = False, backup = True):
         self.configs_file = configs_file
         self.model = model
 
-        
+        if not restart_checkpoint:
+            pretrain_path = None
         self.reload(
             restart_raw_data = restart_raw_data, 
             restart_train_data = restart_train_data, 
@@ -39,11 +40,12 @@ class Manager():
             restart_checkpoint = restart_checkpoint, 
             restart_runner = restart_runner,
             do_backup = backup,
+            pretrain_path = pretrain_path,
         )
         self.setup = setup
         
     def reload(self, restart_raw_data = False, restart_train_data = False, restart_eval_data = False, restart_checkpoint = False, restart_runner = False,
-              do_backup = True):
+              do_backup = True, pretrain_path = None):
 
         with open(self.configs_file) as src:
             configs = json.load(src)
@@ -269,6 +271,7 @@ class Manager():
         optimizer_args = optimizer_args,
         lr_scheduler_args = lr_scheduler_args,
         verbose = 0,
+        pretrain_path = pretrain_path,
         )
     
         evaluater = Evaluater(
@@ -286,6 +289,7 @@ class Manager():
         loss_name = loss_name,
         loss_args = loss_args,
         verbose = 0,
+        pretrain_path = pretrain_path,
         )
 
         predictor = get_predictor(model = evaluater.model, mode = infer_mode)

@@ -10,12 +10,16 @@ class WindowExtractor():
     self.window_shape = window_shape
     self.index = 0
     self.step_divide = step_divide
-    self.n_row = (image_shape[0] - window_shape[0])  // (window_shape[0] // step_divide) + 2 # + 2 at start and finish
-    self.n_col = (image_shape[1] - window_shape[0]) // (window_shape[1] // step_divide) + 2 # + 2 at start and finish
+    self.stride_row = window_shape[0] // step_divide
+    self.stride_col = window_shape[1] // step_divide
+    self.n_row = (image_shape[0] - window_shape[0])  // self.stride_row + 2 # + 2 at start and finish
+    self.n_col = (image_shape[1] - window_shape[0]) // self.stride_col + 2 # + 2 at start and finish
     self.row = 0
     self.col = 0
     self.total = self.getTotal()
 
+  def __len__(self):
+    return int(self.n_col * self.n_row)
   def getTotal(self):
     return int(self.n_col * self.n_row)
 
@@ -29,22 +33,21 @@ class WindowExtractor():
       return (None, None), (None, None)
     return self.getWindow(self.row, self.col)
 
-  def getByIndex(self, index):
-      row, col = self.getRowCol(self.index)
-      if self.index > self.total:
-          return (None, None), (None, None)
-      return self.getWindow(row, col)   
-
   def toRowCol(self, corX, corY):
     """
       get row and col index from pixel coordinate this does account for the last image in each row
     """
-    row = corX // (self.window_shape[0] // self.step_divide)
-    col = corY // (self.window_shape[0] // self.step_divide)
+    row = corX // self.stride_row
+    col = corY // self.stride_col
     # corX = row * self.window_shape[0] // self.step_divide
     # corY = col * self.window_shape[0] // self.step_divide
     return row, col
-
+  def getByIndex(self, index):
+      row, col = self.getRowCol(index)
+      if self.index > self.total:
+          return (None, None), (None, None)
+      return self.getWindow(row, col)   
+      
   def getWindow(self, row, col):
     """
     return top left coordinate and corner type: None, (0, 0), (0,1), ...
@@ -65,13 +68,13 @@ class WindowExtractor():
       corner_type[1] = 1
       corX = self.image_shape[0] - self.window_shape[0]
     else:
-      corX = row * self.window_shape[0] // self.step_divide
+      corX = row * self.stride_row
 
     if col == self.n_col-1:
       corner_type[0] = 1
       corY = self.image_shape[1] - self.window_shape[1]
     else:
-      corY = col * self.window_shape[1] // self.step_divide
+      corY = col * self.stride_col
 
     if row == 0:
       corner_type[0] = 0
@@ -79,11 +82,6 @@ class WindowExtractor():
       corner_type[1] = 0
 
     return (corX, corY), corner_type
-
-  def getWindowIndex(self, index):
-    row, col = self.getRowCol(index)
-    return self.getWindow(row, col)
-        
 
 # windowExtractor = WindowExtractor(image_shape = (5000, 5000), window_shape = (512, 512), step_divide = 1)
 # for _ in range(110):

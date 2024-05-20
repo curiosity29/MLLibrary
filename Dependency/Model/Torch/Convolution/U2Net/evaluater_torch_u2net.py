@@ -14,7 +14,7 @@ from torch.autograd import Variable
 from torchsummary import summary
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from pytorch_lightning.callbacks import LearningRateMonitor
+
 import torch.nn as nn
 
 from .u2net_loss import get_loss
@@ -25,7 +25,7 @@ class Evaluater():
     def __init__(self, dataloader, checkpoint_manager_in, checkpoint_manager_out, metrics = {}, metrics_calculator = {}, tb_writer = None, model = None,
                 eval_length = 20, fig_drawer = None, loss_name = "bce", loss_args = {},
                 device = "cuda", writer = None, model_args = {}, 
-                do_measure_time = False, verbose = 0):
+                do_measure_time = False, verbose = 0, pretrain_path = None):
 
         self.eval_length = eval_length
         self.checkpoint_manager_in = checkpoint_manager_in
@@ -54,6 +54,9 @@ class Evaluater():
             self.model = model
         self.load_status()
 
+        if pretrain_path is not None:
+            self.load_checkpoint(pretrain_path)
+
     
     def __build__(self):
         model = U2Net.get_u2net(**self.model_args)
@@ -76,6 +79,11 @@ class Evaluater():
                     'eval_epoch': self.epoch,
                     'eval_step_index': self.eval_step_index,
                     }, self.checkpoint_step)
+
+    def load_checkpoint(self, checkpoint_path):
+        model_checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(model_checkpoint['model_state_dict'])
+        # return self.model
 
     def load_status(self):
         checkpoint_path = self.checkpoint_manager_in.get_save_paths()["last_period"]
@@ -212,7 +220,7 @@ class Evaluater():
             
         self.save_status()
 
-    def execute(self, num_loop: int = 2):
+    def execute(self, num_loop: int = 1):
         for _ in range(num_loop):
             self.eval()
         self.save_status()

@@ -11,17 +11,21 @@ class WindowExtractor():
     self.window_shape = window_shape
     self.index = 0
     self.step_divide = step_divide
-    self.n_row = (image_shape[0] - window_shape[0])  // (window_shape[0] // step_divide) + 2 # + 2 at start and finish
-    self.n_col = (image_shape[1] - window_shape[0]) // (window_shape[1] // step_divide) + 2 # + 2 at start and finish
+    self.stride_row = window_shape[0] // step_divide
+    self.stride_col = window_shape[1] // step_divide
+    self.n_row = (image_shape[0] - window_shape[0])  // self.stride_row + 2 # + 2 at start and finish
+    self.n_col = (image_shape[1] - window_shape[0]) // self.stride_col + 2 # + 2 at start and finish
     self.row = 0
     self.col = 0
     self.total = self.getTotal()
 
+  def __len__(self):
+    return int(self.n_col * self.n_row)
   def getTotal(self):
     return int(self.n_col * self.n_row)
 
   def getRowCol(self, index):
-    return self.index // self.n_col, self.index % self.n_col
+    return index // self.n_col, index % self.n_col
 
   def next(self):
     self.row, self.col = self.getRowCol(self.index)
@@ -34,17 +38,16 @@ class WindowExtractor():
     """
       get row and col index from pixel coordinate this does account for the last image in each row
     """
-    row = corX // (self.window_shape[0] // self.step_divide)
-    col = corY // (self.window_shape[0] // self.step_divide)
+    row = corX // self.stride_row
+    col = corY // self.stride_col
     # corX = row * self.window_shape[0] // self.step_divide
     # corY = col * self.window_shape[0] // self.step_divide
     return row, col
-
   def getByIndex(self, index):
-      row, col = self.getRowCol(self.index)
+      row, col = self.getRowCol(index)
       if self.index > self.total:
           return (None, None), (None, None)
-      return self.getWindow(row, col)  
+      return self.getWindow(row, col)   
       
   def getWindow(self, row, col):
     """
@@ -66,13 +69,13 @@ class WindowExtractor():
       corner_type[1] = 1
       corX = self.image_shape[0] - self.window_shape[0]
     else:
-      corX = row * self.window_shape[0] // self.step_divide
+      corX = row * self.stride_row
 
     if col == self.n_col-1:
       corner_type[0] = 1
       corY = self.image_shape[1] - self.window_shape[1]
     else:
-      corY = col * self.window_shape[1] // self.step_divide
+      corY = col * self.stride_col
 
     if row == 0:
       corner_type[0] = 0
