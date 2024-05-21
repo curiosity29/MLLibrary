@@ -64,7 +64,17 @@ class FinalDataset(Dataset):
 
     def load(self):
         self.__reload__()
-        self.load_status()
+
+        ### temporary fix
+        try:
+            self.load_status()
+        except:
+            self.last_index = np.random.randint(0, self.length)
+            self.picker = "index"
+
+        ### temporary fix
+
+        
         self.load_command()
         
     def __len__(self):
